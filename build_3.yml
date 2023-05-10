@@ -1,0 +1,53 @@
+steps:
+- task: PowerShell@2
+  displayName: 'Execute Script'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $rootDir = "$(ROOT_DIRECTORY)"
+      $var1 = "$(VAR1)"
+      $var2 = "$(VAR2)"
+
+      # Place the script content here
+      $rootDir = $Env:ROOT_DIRECTORY
+      $var1 = $Env:VAR1
+      $var2 = $Env:VAR2
+
+      function FileExistsInDirectory($directory, $fileName) {
+          $files = Get-ChildItem -LiteralPath $directory -File
+          foreach ($file in $files) {
+              if ($file.Name -eq $fileName) {
+                  return $true
+              }
+          }
+          return $false
+      }
+
+      function CreateNewFile($directory, $fileName, $newFileName) {
+          $filePath = Join-Path -Path $directory -ChildPath $fileName
+          $newFilePath = Join-Path -Path $directory -ChildPath $newFileName
+          $content = Get-Content $filePath -Raw
+          $newContent = $content -replace $var1, $var2
+          $newContent | Out-File -FilePath $newFilePath -Encoding UTF8
+      }
+
+      $subDirs = Get-ChildItem -LiteralPath $rootDir -Directory
+      foreach ($subDir in $subDirs) {
+          $currentDir = Join-Path -Path $rootDir -ChildPath $subDir.Name
+
+          $file1Exists = FileExistsInDirectory $currentDir "env.$var1"
+          $file2Exists = FileExistsInDirectory $currentDir "appsettings.$var1.json"
+          $file3Exists = FileExistsInDirectory $currentDir "AppConfig.$var1.json"
+
+          if ($file1Exists -or $file2Exists -or $file3Exists) {
+              $fileType = if ($file1Exists) { "env" } elseif ($file2Exists) { "appsettings" } else { "AppConfig" }
+              $newFileName = "$fileType.$var2.$fileType"
+              $newFileExists = FileExistsInDirectory $currentDir $newFileName
+
+              if (-not $newFileExists) {
+                  $originalFileName = "$fileType.$var1.$fileType"
+                  CreateNewFile $currentDir $originalFileName $newFileName
+                  Write-Host "Created new file: $newFileName"
+              }
+          }
+      }

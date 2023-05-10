@@ -1,0 +1,44 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+  - task: PowerShell@2
+    inputs:
+      targetType: 'inline'
+      script: |
+        # Set variables
+        $var1 = "Value1"
+        $var2 = "Value2"
+        $parentDir = "$(Build.SourcesDirectory)/ParentDir"
+        $subDir = "$(Build.SourcesDirectory)/ParentDir/SubDir"
+
+        # Loop through files in ParentDir/SubDir
+        $files = Get-ChildItem -Path $subDir -Recurse -File
+
+        foreach ($file in $files) {
+          # Check for files from step 2
+          if ($file.Name -like "appsettings.$var1.json" -or $file.Name -like "AppConfig.$var1.json" -or $file.Name -like "*.eve.$var1") {
+            Write-Host "Found file: $($file.FullName)"
+            
+            # Check if files from step 3 exist
+            $filesStep3Exist = $false
+            if (Test-Path "$($file.Directory.FullName)\appsettings.$var2.json" -or
+                Test-Path "$($file.Directory.FullName)\AppConfig.$var2.json" -or
+                Test-Path "$($file.Directory.FullName)\.eve.$var2") {
+              $filesStep3Exist = $true
+            }
+            
+            # Copy files from step 2 to create files mentioned in step 3
+            if (!$filesStep3Exist) {
+              $newFileName = $file.Name.Replace($var1, $var2)
+              $newFilePath = "$($file.Directory.FullName)\$newFileName"
+              Copy-Item -Path $file.FullName -Destination $newFilePath
+              Write-Host "Created file: $newFilePath"
+            }
+          }
+        }

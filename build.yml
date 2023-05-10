@@ -1,0 +1,36 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+- task: PowerShell@2
+  displayName: 'Create Target Files if Missing'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $sourceDirectory = "$(Build.ArtifactStagingDirectory)/CI_files/Settings/AppName"
+      $targetFiles = @(".env.DEV.json", "file2.DEV.json")  # Add or modify the target file names as needed
+
+      foreach ($targetFile in $targetFiles) {
+          $targetFilePath = Join-Path -Path $sourceDirectory -ChildPath $targetFile
+
+          if (-not (Test-Path $targetFilePath)) {
+              $sourceFilePath = Join-Path -Path $sourceDirectory -ChildPath ($targetFile -replace "DEV", "kehitys")
+
+              if (Test-Path $sourceFilePath) {
+                  $content = Get-Content $sourceFilePath
+                  $modifiedContent = $content -replace "kehitys", "DEV"
+                  $modifiedContent | Out-File $targetFilePath -Encoding UTF8
+
+                  Write-Host "Target file created: $targetFilePath"
+              } else {
+                  Write-Host "Source file not found: $sourceFilePath"
+              }
+          } else {
+              Write-Host "Target file already exists: $targetFilePath"
+          }
+      }
